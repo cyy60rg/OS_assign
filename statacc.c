@@ -3,7 +3,8 @@
 #include <time.h>
 #include <linux/limits.h>
 #include <sys/times.h>
-
+#include <sys/stat.h>
+#include <dirent.h>
 
 typedef long long int num;
 
@@ -59,19 +60,49 @@ long tickspersec;
 
 FILE *input;
 
-void readone(num *x) { fscanf(input, "%lld ", x); }
-void readunsigned(unsigned long long *x) { fscanf(input, "%llu ", x); }
-void readstr(char *x) {  fscanf(input, "%s ", x);}
-void readchar(char *x) {  fscanf(input, "%c ", x);}
+void readone(num *x) 
+{ 
+  fscanf(input, "%lld ", x);
+}
+void readunsigned(unsigned long long *x)
+{
+  fscanf(input, "%llu ", x); 
+}
+void readstr(char *x) 
+{  
+  fscanf(input, "%s ", x);
+}
+void readchar(char *x) 
+{
+  fscanf(input, "%c ", x);
+}
+void printone(char *name, num x) 
+{
+  printf("%20s: %lld\n", name, x);
+}
+void printonex(char *name, num x) 
+{
+  printf("%20s: %016llx\n", name, x);
+}
+void printunsigned(char *name, unsigned long long x) 
+{
+  printf("%20s: %llu\n", name, x);
+}
+void printchar(char *name, char x) 
+{
+  printf("%20s: %c\n", name, x);
+}
+void printstr(char *name, char *x) 
+{  
+  printf("%20s: %s\n", name, x);
+}
+void printtime(char *name, num x) 
+{
+  printf("%20s: %f\n", name, (((double)x) / tickspersec));
+}
 
-void printone(char *name, num x) {  printf("%20s: %lld\n", name, x);}
-void printonex(char *name, num x) {  printf("%20s: %016llx\n", name, x);}
-void printunsigned(char *name, unsigned long long x) {  printf("%20s: %llu\n", name, x);}
-void printchar(char *name, char x) {  printf("%20s: %c\n", name, x);}
-void printstr(char *name, char *x) {  printf("%20s: %s\n", name, x);}
-void printtime(char *name, num x) {  printf("%20s: %f\n", name, (((double)x) / tickspersec));}
-
-int gettimesinceboot() {
+int gettimesinceboot() 
+{
   FILE *procuptime;
   int sec, ssec;
 
@@ -81,7 +112,8 @@ int gettimesinceboot() {
   return (sec*tickspersec)+ssec;
 }
 
-void printtimediff(char *name, num x) {
+void printtimediff(char *name, num x) 
+{
   int sinceboot = gettimesinceboot();
   int running = sinceboot - x;
   time_t rt = time(NULL) - (running / tickspersec);
@@ -91,21 +123,32 @@ void printtimediff(char *name, num x) {
   printf("%20s: %s (%u.%us)\n", name, buf, running / tickspersec, running % tickspersec);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) 
+{
   tickspersec = sysconf(_SC_CLK_TCK);
   input = NULL;
 
-  if(argc > 1) {
+  if(argc > 1) 
+  {
     chdir("/proc");
-    if(chdir(argv[1]) == 0) { input = fopen("stat", "r"); }
-    if(!input) {
+    if(chdir(argv[1]) == 0) 
+    { 
+      input = fopen("stat", "r");
+    }
+    if(!input) 
+    {
       perror("open");
       return 1;
     }
-  } else {
+  } 
+  else 
+  {
     input = stdin;
   }
-
+  DIR *mydir;
+  struct dirent *myfile;
+  struct stat mystat;
+  char* dir=(char*)get_current_dir_name();
 
   readone(&pid);
   readstr(tcomm);
@@ -149,7 +192,7 @@ int main(int argc, char *argv[]) {
   readone(&rt_priority);
   readone(&policy);
 
-  {
+ /* {
 
     printone("pid", pid);
     printstr("tcomm", tcomm);
@@ -192,7 +235,8 @@ int main(int argc, char *argv[]) {
     printone("cpu", cpu);
     printone("rt_priority", rt_priority);
     printone("policy", policy);
-  }
+  }*/
+  printf("%d",pid);
 
   return 0;
 }
