@@ -1,10 +1,14 @@
 #include <stdio.h>
+#include<stdlib.h>
+#include<ctype.h>
 #include <unistd.h>
+#include<string.h>
 #include <time.h>
 #include <linux/limits.h>
 #include <sys/times.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <pwd.h>
 
 typedef long long int num;
 
@@ -60,6 +64,26 @@ long tickspersec;
 
 FILE *input;
 
+
+int chk_no(char *a)
+{
+  int i;
+  /*for (i=0; a[i] != '\n'; i++)
+  {
+    if (!isdigit (a[i]))
+    {
+      return 0;
+    }
+  }*/
+ // printf("%s\n",a);
+  if(!isdigit(a[0]))
+    return 0;
+  return 1;
+
+}
+
+
+
 void readone(num *x) 
 { 
   fscanf(input, "%lld ", x);
@@ -111,7 +135,17 @@ int gettimesinceboot()
   fclose(procuptime);
   return (sec*tickspersec)+ssec;
 }
-
+char* getcmd(char* dr)
+{
+  FILE *fp;
+  char* s;
+  chdir("/proc");
+  chdir(dr);
+  fp=fopen("cmdline","r");
+  fscanf(fp,"%[^\n]",s);
+  fclose(fp);
+  return s;        
+}
 void printtimediff(char *name, num x) 
 {
   int sinceboot = gettimesinceboot();
@@ -128,7 +162,7 @@ int main(int argc, char *argv[])
   tickspersec = sysconf(_SC_CLK_TCK);
   input = NULL;
 
-  if(argc > 1) 
+  /*if(argc > 1) 
   {
     chdir("/proc");
     if(chdir(argv[1]) == 0) 
@@ -140,60 +174,100 @@ int main(int argc, char *argv[])
       perror("open");
       return 1;
     }
+
   } 
   else 
   {
     input = stdin;
-  }
-  DIR *mydir;
+  }*/
+  char *a;
+  //Dk_no(a);
+  //printf("j= %d",f);
+  DIR *mydir,*myd1;
   struct dirent *myfile;
   struct stat mystat;
-  char* dir=(char*)get_current_dir_name();
-
-  readone(&pid);
-  readstr(tcomm);
-  readchar(&state);
-  readone(&ppid);
-  readone(&pgid);
-  readone(&sid);
-  readone(&tty_nr);
-  readone(&tty_pgrp);
-  readone(&flags);
-  readone(&min_flt);
-  readone(&cmin_flt);
-  readone(&maj_flt);
-  readone(&cmaj_flt);
-  readone(&utime);
-  readone(&stimev);
-  readone(&cutime);
-  readone(&cstime);
-  readone(&priority);
-  readone(&nicev);
-  readone(&num_threads);
-  readone(&it_real_value);
-  readunsigned(&start_time);
-  readone(&vsize);
-  readone(&rss);
-  readone(&rsslim);
-  readone(&start_code);
-  readone(&end_code);
-  readone(&start_stack);
-  readone(&esp);
-  readone(&eip);
-  readone(&pending);
-  readone(&blocked);
-  readone(&sigign);
-  readone(&sigcatch);
-  readone(&wchan);
-  readone(&zero1);
-  readone(&zero2);
-  readone(&exit_signal);
-  readone(&cpu);
-  readone(&rt_priority);
-  readone(&policy);
-
- /* {
-
+  //char* dir=(char*)get_current_dir_name();
+  int f=1;
+  char *cmd;
+  
+  mydir = opendir("/proc");
+  while((myfile = readdir(mydir)) != NULL)
+  {
+    stat(myfile->d_name, &mystat);
+    a=(char*)myfile->d_name;
+    if(*a!='.')
+    {
+      f=chk_no(a);
+     // printf("j= %d\n",f);
+    }
+    else
+      f=0;
+    //printf("aa%d\n",f);
+    if(f==1)
+    {
+      //printf("aaaa \nf= %d\n",f);
+      chdir("/proc");
+      if(chdir(a)==0)
+      {
+        //printf("success\n");
+        input=fopen("stat","r");
+      }
+      else
+      {
+        printf("error");
+        return 1;
+      }  
+      readone(&pid);
+      readstr(tcomm);
+      readchar(&state);
+      readone(&ppid);
+      readone(&pgid);
+      readone(&sid);
+      readone(&tty_nr);
+      readone(&tty_pgrp);
+      readone(&flags);
+      readone(&min_flt);
+      readone(&cmin_flt);
+      readone(&maj_flt);
+      readone(&cmaj_flt);
+      readone(&utime);
+      readone(&stimev);
+      readone(&cutime);
+      readone(&cstime);
+      readone(&priority);
+      readone(&nicev);
+      readone(&num_threads);
+      readone(&it_real_value);
+      readunsigned(&start_time);
+      readone(&vsize);
+      readone(&rss);
+      readone(&rsslim);
+      readone(&start_code);
+      readone(&end_code);
+      readone(&start_stack);
+      readone(&esp);
+      readone(&eip);
+      readone(&pending);
+      readone(&blocked);
+      readone(&sigign);
+      readone(&sigcatch);
+      readone(&wchan);
+      readone(&zero1);
+      readone(&zero2);
+      readone(&exit_signal);
+      readone(&cpu);
+      readone(&rt_priority);
+      readone(&policy);
+      
+      cmd=getcmd(a);
+  {
+    int no=20;
+    printf("%lld\t",pid);
+    if(strlen(cmd)<=2)  
+      printf("%s\n",tcomm);
+    else 
+      printf("%.*s\n",no,cmd);
+    /*
     printone("pid", pid);
     printstr("tcomm", tcomm);
     printchar("state", state);
@@ -235,8 +309,11 @@ int main(int argc, char *argv[])
     printone("cpu", cpu);
     printone("rt_priority", rt_priority);
     printone("policy", policy);
-  }*/
-  printf("%d",pid);
-
+    */
+  }
+   //   printf("%d\n",pid);
+    }
+    f=1;
+  }
   return 0;
 }
