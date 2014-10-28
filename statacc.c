@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <pwd.h>
 
+
 typedef long long int num;
 
 num pid;
@@ -120,9 +121,13 @@ void printstr(char *name, char *x)
 {  
   printf("%20s: %s\n", name, x);
 }
-void printtime(char *name, num x) 
+void printtime(num x) 
 {
-  printf("%20s: %f\n", name, (((double)x) / tickspersec));
+  double d=(double)x / tickspersec;
+  int m,sec;
+  sec=(int)d%60;
+  m=d/60;   
+  printf("  %d.%d" ,m,sec);
 }
 
 int gettimesinceboot() 
@@ -146,17 +151,102 @@ char* getcmd(char* dr)
   fclose(fp);
   return s;        
 }
-void printtimediff(char *name, num x) 
+void printtimediff(num x) 
 {
+  tickspersec = sysconf(_SC_CLK_TCK);
   int sinceboot = gettimesinceboot();
   int running = sinceboot - x;
   time_t rt = time(NULL) - (running / tickspersec);
   char buf[1024];
 
-  strftime(buf, sizeof(buf), "%m.%d %H:%M", localtime(&rt));
-  printf("%20s: %s (%u.%us)\n", name, buf, running / tickspersec, running % tickspersec);
+  strftime(buf, sizeof(buf), "%H:%M", localtime(&rt));
+  printf("\t  %s ", buf);
 }
+char *uid;  
+float mem_usage(char* a)
+{
+  size_t len=0;
+  char uid_int_str[6]={0},*line;
+  char path[1024];
+  FILE *fp;
+  strcpy(path,"/proc/");
+  strcat(path,"meminfo");
 
+  fp=fopen(path,"r");
+  unsigned long long total_memory;
+  if(fp!=NULL)
+  {
+  getline(&line,&len,fp);
+  sscanf(line,"MemTotal:        %llu kB",&total_memory);
+  }
+  strcpy(path,"/proc/");
+  strcat(path,a);
+  strcat(path,"/status");
+  unsigned long long memory_rss;
+  fp=fopen(path,"r");
+  unsigned long long vmsize;
+  if(fp!=NULL)
+  {
+    vmsize=0;
+    getline(&line,&len,fp);
+    getline(&line,&len,fp);
+    getline(&line,&len,fp);
+    getline(&line,&len,fp);
+    getline(&line,&len,fp);
+    getline(&line,&len,fp);
+    getline(&line,&len,fp);
+    getline(&line,&len,fp);
+    sscanf(line,"Uid:    %s ",uid_int_str);
+    getline(&line,&len,fp);
+                getline(&line,&len,fp);
+                getline(&line,&len,fp);
+    getline(&line,&len,fp);
+                getline(&line,&len,fp);
+    sscanf(line,"VmSize:    %llu kB",&vmsize);
+                getline(&line,&len,fp);
+                getline(&line,&len,fp);
+                getline(&line,&len,fp);
+    getline(&line,&len,fp);
+    sscanf(line,"VmRSS:     %llu kB",&memory_rss);
+    //fprintf(stdout,"VmRSS::%llu",memory_rss);
+  }
+  else
+  {
+    fprintf(stdout,"FP is NULL\n");
+  }
+  float memory_usage=(float)100*(float)memory_rss/(float)total_memory;
+  uid=uid_int_str;
+  return memory_usage; 
+}
+long getuptime()
+{
+  FILE *procuptime;
+  int sec, ssec;
+
+  procuptime = fopen("/proc/uptime", "r");
+  fscanf(procuptime, "%d.%ds", &sec, &ssec);
+  fclose(procuptime);
+  return (long)sec;
+}
+float cpu_usage(num st,num ut,num cut,num cst,num st_t)
+{
+  tickspersec = sysconf(_SC_CLK_TCK);
+  unsigned long tot_t=ut+st;
+  tot_t+=(unsigned long)cut,(unsigned long)cst;
+  float sec=getuptime()-(st_t/tickspersec);
+  float cpu_usg=100*((tot_t/tickspersec)/sec);
+  if(isnan(cpu_usg))
+    cpu_usg=0.0;
+  return cpu_usg;
+        
+}
+char* get_usr_name(int ud)
+{
+  struct passwd *pwd=getpwuid(ud);
+  if(pwd)
+    return pwd->pw_name;
+  return "";
+}
 int main(int argc, char *argv[]) 
 {
   tickspersec = sysconf(_SC_CLK_TCK);
@@ -189,7 +279,8 @@ int main(int argc, char *argv[])
   //char* dir=(char*)get_current_dir_name();
   int f=1;
   char *cmd;
-  
+  char stt;
+  long long int tty_chk;  
   mydir = opendir("/proc");
   while((myfile = readdir(mydir)) != NULL)
   {
@@ -220,10 +311,12 @@ int main(int argc, char *argv[])
       readone(&pid);
       readstr(tcomm);
       readchar(&state);
+      stt=state; 
       readone(&ppid);
       readone(&pgid);
       readone(&sid);
       readone(&tty_nr);
+      tty_chk=tty_nr;
       readone(&tty_pgrp);
       readone(&flags);
       readone(&min_flt);
@@ -260,13 +353,38 @@ int main(int argc, char *argv[])
       readone(&policy);
       
       cmd=getcmd(a);
-  {
-    int no=20;
-    printf("%lld\t",pid);
+    char ch1='?';
+    char* ttyp="pts";
+    char *usrn;
+    int no=10;
+    float mem_us=mem_usage(myfile->d_name);
+    float cpu_us=cpu_usage(stimev,utime,cutime,cstime,start_time);
+    usrn=get_usr_name(atoi(uid));
+    if(strlen(usrn)>7)
+      printf("%s",usrn);
+    else
+      printf("%s\t",usrn);
+    printf("%c%lld\t",' ',pid);
+    if(cpu_us>9)
+      cpu_us=0.0;
+    printf("%.1f  ",cpu_us);
+    printf("%.1f       ",mem_us);       
+    printf("%lld\t",vsize/1024);
+    printf("%lld\t",rss*4);    
+    if(tty_chk==0)
+      printf("%c   ",ch1);
+    else
+      printf("%s ",ttyp);
+    printf("%c",stt);
+    
+      
+    
+    printtimediff(start_time);
+    printtime(utime);
     if(strlen(cmd)<=2)  
-      printf("%s\n",tcomm);
+      printf("  %s\n",tcomm);
     else 
-      printf("%.*s\n",no,cmd);
+      printf("  %.*s\n",no,cmd);
     /*
     printone("pid", pid);
     printstr("tcomm", tcomm);
@@ -310,7 +428,7 @@ int main(int argc, char *argv[])
     printone("rt_priority", rt_priority);
     printone("policy", policy);
     */
-  }
+  
    //   printf("%d\n",pid);
     }
     f=1;
